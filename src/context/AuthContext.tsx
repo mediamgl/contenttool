@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export interface User {
   id: string;
@@ -32,43 +34,140 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user session and profile on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const initializeAuth = async () => {
       try {
-        setUser(JSON.parse(storedUser));
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        }
       } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('user');
+        console.error('Failed to initialize auth:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadUserProfile(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const loadUserProfile = async (supabaseUser: SupabaseUser) => {
+    try {
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', supabaseUser.id)
+        .single();
+
+      // Get user preferences
+      const { data: preferences, error: prefsError } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', supabaseUser.id)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw profileError;
+      }
+
+      // If profile doesn't exist, create it
+      if (!profile) {
+        const { data: newProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: supabaseUser.id,
+            name: supabaseUser.email?.split('@')[0] || 'User',
+            role: 'user',
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        // Create default preferences
+        await supabase.from('user_preferences').insert({
+          user_id: supabaseUser.id,
+          timezone: 'UTC',
+          default_platform: 'medium',
+          default_content_type: 'blog',
+          default_ai_provider: 'anthropic',
+          writing_tone: 'professional',
+        });
+
+        const { data: newPrefs } = await supabase
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', supabaseUser.id)
+          .single();
+
+        setUser({
+          id: newProfile.user_id,
+          email: supabaseUser.email || '',
+          name: newProfile.name,
+          role: newProfile.role as 'user' | 'admin',
+          avatar: newProfile.avatar_url || undefined,
+          preferences: {
+            timezone: newPrefs?.timezone || 'UTC',
+            defaultPlatform: newPrefs?.default_platform || 'medium',
+            defaultContentType: newPrefs?.default_content_type || 'blog',
+            defaultAIProvider: newPrefs?.default_ai_provider || 'anthropic',
+            writingTone: newPrefs?.writing_tone || 'professional',
+          },
+        });
+      } else {
+        setUser({
+          id: profile.user_id,
+          email: supabaseUser.email || '',
+          name: profile.name,
+          role: profile.role as 'user' | 'admin',
+          avatar: profile.avatar_url || undefined,
+          preferences: {
+            timezone: preferences?.timezone || 'UTC',
+            defaultPlatform: preferences?.default_platform || 'medium',
+            defaultContentType: preferences?.default_content_type || 'blog',
+            defaultAIProvider: preferences?.default_ai_provider || 'anthropic',
+            writingTone: preferences?.writing_tone || 'professional',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+      throw error;
+    }
+  };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock API call - replace with real API
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const mockUser: User = {
-        id: '1',
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        name: email.split('@')[0],
-        role: 'user',
-        preferences: {
-          timezone: 'UTC',
-          defaultPlatform: 'medium',
-          defaultContentType: 'blog',
-          defaultAIProvider: 'anthropic',
-          writingTone: 'professional',
-        },
-      };
+        password,
+      });
 
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('authToken', 'mock_token_' + Date.now());
+      if (error) throw error;
+
+      if (data.user) {
+        await loadUserProfile(data.user);
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.message || 'Failed to login');
     } finally {
       setIsLoading(false);
     }
@@ -77,35 +176,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
-      // Mock API call - replace with real API
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+      const { data, error } = await supabase.auth.signUp({
         email,
-        name,
-        role: 'user',
-        preferences: {
-          timezone: 'UTC',
-          defaultPlatform: 'medium',
-          defaultContentType: 'blog',
-          defaultAIProvider: 'anthropic',
-          writingTone: 'professional',
-        },
-      };
+        password,
+      });
 
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('authToken', 'mock_token_' + Date.now());
+      if (error) throw error;
+
+      if (data.user) {
+        // Create user profile
+        await supabase.from('user_profiles').insert({
+          user_id: data.user.id,
+          name,
+          role: 'user',
+        });
+
+        // Create default preferences
+        await supabase.from('user_preferences').insert({
+          user_id: data.user.id,
+          timezone: 'UTC',
+          default_platform: 'medium',
+          default_content_type: 'blog',
+          default_ai_provider: 'anthropic',
+          writing_tone: 'professional',
+        });
+
+        await loadUserProfile(data.user);
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw new Error(error.message || 'Failed to register');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const updateProfile = async (updates: Partial<User>) => {
@@ -113,12 +225,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          name: updates.name,
+          avatar_url: updates.avatar,
+        })
+        .eq('user_id', user.id);
 
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (error) throw error;
+
+      setUser({ ...user, ...updates });
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      throw new Error(error.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
@@ -129,15 +249,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const { error } = await supabase
+        .from('user_preferences')
+        .update({
+          timezone: preferences.timezone,
+          default_platform: preferences.defaultPlatform,
+          default_content_type: preferences.defaultContentType,
+          default_ai_provider: preferences.defaultAIProvider,
+          writing_tone: preferences.writingTone,
+        })
+        .eq('user_id', user.id);
 
-      const updatedUser = {
+      if (error) throw error;
+
+      setUser({
         ...user,
         preferences: { ...user.preferences, ...preferences },
-      };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      });
+    } catch (error: any) {
+      console.error('Update preferences error:', error);
+      throw new Error(error.message || 'Failed to update preferences');
     } finally {
       setIsLoading(false);
     }
