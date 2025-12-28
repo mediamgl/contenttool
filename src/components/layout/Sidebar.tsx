@@ -10,6 +10,8 @@ import {
   Settings,
   BarChart3,
   X,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, href: '/' },
     { label: 'Ideas', icon: <Lightbulb className="w-5 h-5" />, href: '/ideas' },
+    { label: 'Content Builder', icon: <Sparkles className="w-5 h-5" />, href: '/builder' },
     { label: 'Write', icon: <FileText className="w-5 h-5" />, href: '/editor' },
     { label: 'Library', icon: <BookOpen className="w-5 h-5" />, href: '/library' },
     { label: 'Knowledge Base', icon: <HardDrive className="w-5 h-5" />, href: '/knowledge-base' },
@@ -37,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   ];
 
   const secondaryItems: NavItem[] = [
+    { label: 'Content Analysis', icon: <Zap className="w-5 h-5" />, href: '/analysis' },
     { label: 'Analytics', icon: <BarChart3 className="w-5 h-5" />, href: '/analytics' },
     { label: 'Settings', icon: <Settings className="w-5 h-5" />, href: '/settings' },
   ];
