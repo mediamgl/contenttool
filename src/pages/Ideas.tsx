@@ -75,22 +75,30 @@ export default function Ideas() {
     }
   };
 
-  const handleSaveIdea = (idea: Idea) => {
+  const handleSaveIdea = async (idea: Idea) => {
     if (!user) {
       addToast('Please log in to save ideas', 'error');
       return;
     }
-    const newId = addIdea({
-      userId: user.id,
-      ...idea,
-      isSaved: true,
-      status: 'saved',
-      createdAt: new Date().toISOString(),
-    });
-    setGeneratedIdeas(
-      generatedIdeas.map(i => (i.id === idea.id ? { ...i, isSaved: true } : i))
-    );
-    addToast('Idea saved!', 'success');
+    try {
+      await addIdea({
+        userId: user.id,
+        title: idea.title,
+        description: idea.description,
+        category: idea.category,
+        suggestedType: idea.suggestedType as any,
+        suggestedPlatforms: idea.suggestedPlatforms,
+        isSaved: true,
+        status: 'saved',
+      });
+      setGeneratedIdeas(
+        generatedIdeas.map(i => (i.id === idea.id ? { ...i, isSaved: true } : i))
+      );
+      addToast('Idea saved!', 'success');
+    } catch (error) {
+      console.error('Failed to save idea:', error);
+      addToast('Failed to save idea', 'error');
+    }
   };
 
   const handleUseIdea = (idea: Idea) => {
