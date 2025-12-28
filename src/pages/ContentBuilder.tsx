@@ -80,7 +80,7 @@ export default function ContentBuilder() {
 
     setState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await aiService.generateHooks(state.topic, 5);
+      const response = await aiService.generateHooks(state.topic, state.contentType, 5);
       if (response.success && response.data) {
         setState(prev => ({
           ...prev,
@@ -107,7 +107,7 @@ export default function ContentBuilder() {
 
     setState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await aiService.generateOutline(state.topic, state.selectedHook);
+      const response = await aiService.generateOutline(state.topic, state.selectedHook, state.contentType);
       if (response.success && response.data) {
         setState(prev => ({
           ...prev,
