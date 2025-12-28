@@ -53,12 +53,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserProfile(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      (async () => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await loadUserProfile(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      })();
     });
 
     return () => {
@@ -73,16 +75,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .from('user_profiles')
         .select('*')
         .eq('user_id', supabaseUser.id)
-        .single();
+        .maybeSingle();
 
       // Get user preferences
       const { data: preferences, error: prefsError } = await supabase
         .from('user_preferences')
         .select('*')
         .eq('user_id', supabaseUser.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError && profileError.code !== 'PGRST116') {
+      if (profileError) {
         throw profileError;
       }
 
@@ -96,9 +98,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             role: 'user',
           })
           .select()
-          .single();
+          .maybeSingle();
 
-        if (createError) throw createError;
+        if (createError || !newProfile) throw new Error('Failed to create user profile');
 
         // Create default preferences
         await supabase.from('user_preferences').insert({
@@ -114,7 +116,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .from('user_preferences')
           .select('*')
           .eq('user_id', supabaseUser.id)
-          .single();
+          .maybeSingle();
 
         setUser({
           id: newProfile.user_id,
