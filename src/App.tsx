@@ -21,8 +21,16 @@ import ContentAnalysis from '/src/pages/ContentAnalysis.tsx';
 
 
 // Auth guard component
-function AuthGuard({ children, requiresAuth = false }: { children: React.ReactNode, requiresAuth?: boolean }) {
-  const { isAuthenticated, isLoading } = useAuth();
+function AuthGuard({
+  children,
+  requiresAuth = false,
+  requiresAdmin = false
+}: {
+  children: React.ReactNode,
+  requiresAuth?: boolean,
+  requiresAdmin?: boolean
+}) {
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -44,6 +52,10 @@ function AuthGuard({ children, requiresAuth = false }: { children: React.ReactNo
 
   if (requiresAuth && !isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiresAdmin && user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   if (!requiresAuth && isAuthenticated && (window.location.pathname === '/login' || window.location.pathname === '/register')) {
@@ -86,13 +98,13 @@ export default function App() {
         } />
 
         <Route path="/" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Dashboard} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/ideas" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Ideas} layouts={[]} />
           </AuthGuard>
         } />
@@ -110,55 +122,55 @@ export default function App() {
         } />
 
         <Route path="/settings" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Settings} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/builder" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={ContentBuilder} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/editor" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Editor} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/knowledge-base" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={KnowledgeBase} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/library" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Library} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/publisher" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Publisher} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/admin" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true} requiresAdmin={true}>
             <PageWithLayout page={AdminDashboard} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/analytics" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={Analytics} layouts={[]} />
           </AuthGuard>
         } />
 
         <Route path="/analysis" element={
-          <AuthGuard requiresAuth={false}>
+          <AuthGuard requiresAuth={true}>
             <PageWithLayout page={ContentAnalysis} layouts={[]} />
           </AuthGuard>
         } />

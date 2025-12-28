@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { errorLogger, ErrorCategory } from '../services/errorLoggingService';
 
 export interface User {
   id: string;
@@ -43,8 +44,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (session?.user) {
           await loadUserProfile(session.user);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize auth:', error);
+        await errorLogger.logAuthError('Failed to initialize authentication', error);
       } finally {
         setIsLoading(false);
       }
@@ -148,8 +150,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           },
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load user profile:', error);
+      await errorLogger.logAuthError('Failed to load user profile', error, {
+        userId: supabaseUser.id,
+      });
       throw error;
     }
   };
@@ -169,6 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      await errorLogger.logAuthError('Login failed', error, { email });
       throw new Error(error.message || 'Failed to login');
     } finally {
       setIsLoading(false);
@@ -207,6 +213,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error: any) {
       console.error('Registration error:', error);
+      await errorLogger.logAuthError('Registration failed', error, { email, name });
       throw new Error(error.message || 'Failed to register');
     } finally {
       setIsLoading(false);
