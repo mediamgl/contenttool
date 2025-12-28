@@ -10,13 +10,15 @@
 
 import React, { useState } from 'react';
 import { Lightbulb, Sparkles, Bookmark, Trash2, ChevronRight, Loader } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Textarea } from '../components/ui/Input';
 import { useContent } from '../context/ContentContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
-import { ideasAPI } from '../services/api';
+import { aiService } from '../services/aiService';
 
 interface Idea {
   id: string;
@@ -30,7 +32,9 @@ interface Idea {
 
 export default function Ideas() {
   const { addIdea, deleteIdea, ideas, getSavedIdeas } = useContent();
+  const { user } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'generate' | 'saved'>('generate');
   const [businessDescription, setBusinessDescription] = useState('');
@@ -56,21 +60,28 @@ export default function Ideas() {
 
     setIsGenerating(true);
     try {
-      const response = await ideasAPI.generateIdeas(businessDescription, selectedContentTypes);
+      const response = await aiService.generateIdeas(businessDescription, selectedContentTypes, 5);
       if (response.success && response.data) {
         setGeneratedIdeas(response.data);
         addToast(`Generated ${response.data.length} ideas!`, 'success');
+      } else {
+        addToast(response.error || 'Failed to generate ideas', 'error');
       }
     } catch (error) {
       addToast('Failed to generate ideas', 'error');
+      console.error('Error generating ideas:', error);
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSaveIdea = (idea: Idea) => {
+    if (!user) {
+      addToast('Please log in to save ideas', 'error');
+      return;
+    }
     const newId = addIdea({
-      userId: '1',
+      userId: user.id,
       ...idea,
       isSaved: true,
       status: 'saved',
@@ -80,6 +91,24 @@ export default function Ideas() {
       generatedIdeas.map(i => (i.id === idea.id ? { ...i, isSaved: true } : i))
     );
     addToast('Idea saved!', 'success');
+  };
+
+  const handleUseIdea = (idea: Idea) => {
+    if (!user) {
+      addToast('Please log in to use ideas', 'error');
+      return;
+    }
+    // Save the idea first, then navigate to builder
+    handleSaveIdea(idea);
+    navigate(`/builder?topic=${encodeURIComponent(idea.title)}&description=${encodeURIComponent(idea.description)}`);
+  };
+
+  const handleStartWriting = (ideaId: string) => {
+    if (!user) {
+      addToast('Please log in to start writing', 'error');
+      return;
+    }
+    navigate(`/builder?ideaId=${ideaId}`);
   };
 
   const handleDeleteIdea = (ideaId: string) => {
@@ -194,7 +223,10 @@ export default function Ideas() {
                   ))}
                 </div>
 
-                <button className="text-brand hover:text-primary-hover font-semibold text-sm flex items-center gap-sm w-full group">
+                <button
+                  onClick={() => handleUseIdea(idea)}
+                  className="text-brand hover:text-primary-hover font-semibold text-sm flex items-center gap-sm w-full group"
+                >
                   Use Idea
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
@@ -244,7 +276,10 @@ export default function Ideas() {
                   <span className="badge badge-primary">{idea.suggestedType}</span>
                 </div>
 
-                <button className="btn btn-primary w-full">
+                <button
+                  onClick={() => handleStartWriting(idea.id)}
+                  className="btn btn-primary w-full"
+                >
                   Start Writing
                 </button>
               </Card>

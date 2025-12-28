@@ -8,15 +8,17 @@
  * @requiresAuth false
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Sparkles, BookOpen } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea, Select } from '../components/ui/Input';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useContent } from '../context/ContentContext';
-import { builderAPI } from '../services/api';
+import { aiService } from '../services/aiService';
 
 type Step = 'topic' | 'hooks' | 'outline' | 'complete';
 
@@ -32,7 +34,10 @@ interface BuilderState {
 
 export default function ContentBuilder() {
   const { addToast } = useToast();
-  const { addOutline } = useContent();
+  const { user } = useAuth();
+  const { addOutline, ideas } = useContent();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [state, setState] = useState<BuilderState>({
     step: 'topic',
@@ -44,15 +49,38 @@ export default function ContentBuilder() {
     isLoading: false,
   });
 
+  // Handle URL parameters for pre-filling from ideas
+  useEffect(() => {
+    const topicParam = searchParams.get('topic');
+    const descriptionParam = searchParams.get('description');
+    const ideaIdParam = searchParams.get('ideaId');
+
+    if (topicParam) {
+      setState(prev => ({ ...prev, topic: topicParam }));
+    }
+
+    if (ideaIdParam) {
+      const idea = ideas.find(i => i.id === ideaIdParam);
+      if (idea) {
+        setState(prev => ({ ...prev, topic: idea.title }));
+      }
+    }
+  }, [searchParams, ideas]);
+
   const handleTopicSubmit = async () => {
     if (!state.topic.trim()) {
       addToast('Please enter a topic or title', 'error');
       return;
     }
 
+    if (!user) {
+      addToast('Please log in to continue', 'error');
+      return;
+    }
+
     setState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await builderAPI.generateHooks(state.topic);
+      const response = await aiService.generateHooks(state.topic, 5);
       if (response.success && response.data) {
         setState(prev => ({
           ...prev,
@@ -60,9 +88,13 @@ export default function ContentBuilder() {
           step: 'hooks',
           isLoading: false,
         }));
+      } else {
+        addToast(response.error || 'Failed to generate hooks', 'error');
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       addToast('Failed to generate hooks', 'error');
+      console.error('Error generating hooks:', error);
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -75,7 +107,7 @@ export default function ContentBuilder() {
 
     setState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await builderAPI.generateOutline(state.topic, state.selectedHook);
+      const response = await aiService.generateOutline(state.topic, state.selectedHook);
       if (response.success && response.data) {
         setState(prev => ({
           ...prev,
@@ -83,9 +115,13 @@ export default function ContentBuilder() {
           step: 'outline',
           isLoading: false,
         }));
+      } else {
+        addToast(response.error || 'Failed to generate outline', 'error');
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       addToast('Failed to generate outline', 'error');
+      console.error('Error generating outline:', error);
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -103,8 +139,13 @@ export default function ContentBuilder() {
       return;
     }
 
+    if (!user) {
+      addToast('Please log in to continue', 'error');
+      return;
+    }
+
     const outlineId = addOutline({
-      userId: '1',
+      userId: user.id,
       title: state.topic,
       topic: state.topic,
       hook: state.selectedHook,
@@ -118,10 +159,12 @@ export default function ContentBuilder() {
     });
 
     addToast('Content outline created!', 'success');
+    // Store the outline ID for navigation
     setState(prev => ({
       ...prev,
       step: 'complete',
       isLoading: false,
+      outline: { ...prev.outline, id: outlineId },
     }));
   };
 
@@ -379,14 +422,14 @@ export default function ContentBuilder() {
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => (window.location.href = '/editor')}
+                onClick={() => navigate(`/editor?outlineId=${state.outline?.id || ''}`)}
               >
                 Start Writing
               </Button>
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={() => (window.location.href = '/library')}
+                onClick={() => navigate('/library')}
               >
                 View in Library
               </Button>

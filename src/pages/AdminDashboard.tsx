@@ -13,7 +13,7 @@ import { BarChart3, Users, FileText, HardDrive, TrendingUp, Activity, Settings, 
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { adminAPI } from '../services/api';
+import { useContent } from '../context/ContentContext';
 
 interface AdminStats {
   totalUsers: number;
@@ -35,8 +35,9 @@ interface User {
 }
 
 export default function AdminDashboard() {
+  const { content } = useContent();
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [users, setUsers] = useState<User[]>([
+  const [users] = useState<User[]>([
     {
       id: '1',
       email: 'user@example.com',
@@ -59,18 +60,21 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await adminAPI.getStats();
-        if (response.success && response.data) {
-          setStats(response.data);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+    // Calculate stats from actual content
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const contentThisWeek = content.filter(c => new Date(c.createdAt).getTime() > oneWeekAgo).length;
+
+    setStats({
+      totalUsers: users.length,
+      totalContent: content.length,
+      totalDocuments: 0,
+      activeUsers: users.filter(u => u.status === 'active').length,
+      contentThisWeek,
+      documentsThisMonth: 0,
+    });
+    setIsLoading(false);
+  }, [content, users]);
 
   const statCards = stats
     ? [

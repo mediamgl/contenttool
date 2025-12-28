@@ -25,7 +25,9 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Textarea } from '../components/ui/Input';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
+import { aiService } from '../services/aiService';
 
 interface AnalysisResult {
   seoScore: number;
@@ -47,6 +49,7 @@ interface AnalysisResult {
 
 export default function ContentAnalysis() {
   const { addToast } = useToast();
+  const { user } = useAuth();
   const [content, setContent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -57,36 +60,42 @@ export default function ContentAnalysis() {
       return;
     }
 
+    if (!user) {
+      addToast('Please log in to use analysis features', 'error');
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await aiService.analyzeContent(content, 'Content Analysis');
 
-      // Mock analysis results
-      setAnalysis({
-        seoScore: 82,
-        readabilityScore: 76,
-        plagiarismScore: 2,
-        toneAnalysis: {
-          dominant: 'Professional',
-          confidence: 0.92,
-          alternatives: ['Informative', 'Technical'],
-        },
-        keyMetrics: {
-          wordCount: content.split(/\s+/).length,
-          sentenceCount: content.split(/[.!?]+/).length - 1,
-          averageWordLength: 5.2,
-          fleschKincaidGrade: 8.5,
-        },
-        suggestions: [
-          'Add more transition words to improve flow',
-          'Consider breaking down paragraphs for better readability',
-          'Include more specific data points and examples',
-          'Add a clear call-to-action at the end',
-        ],
-      });
+      if (response.success && response.data) {
+        // Map the API response to our UI format
+        setAnalysis({
+          seoScore: response.data.seoScore || 0,
+          readabilityScore: response.data.readabilityScore || 0,
+          plagiarismScore: response.data.plagiarismScore || 0,
+          toneAnalysis: {
+            dominant: response.data.tone || 'Professional',
+            confidence: response.data.toneConfidence || 0.8,
+            alternatives: response.data.alternativeTones || [],
+          },
+          keyMetrics: {
+            wordCount: content.split(/\s+/).filter(Boolean).length,
+            sentenceCount: content.split(/[.!?]+/).filter(Boolean).length,
+            averageWordLength: response.data.averageWordLength || 5.0,
+            fleschKincaidGrade: response.data.readingLevel || 8.0,
+          },
+          suggestions: response.data.suggestions || [],
+        });
 
-      addToast('Analysis complete!', 'success');
+        addToast('Analysis complete!', 'success');
+      } else {
+        addToast(response.error || 'Analysis failed', 'error');
+      }
+    } catch (error) {
+      addToast('Analysis failed', 'error');
+      console.error('Error analyzing content:', error);
     } finally {
       setIsAnalyzing(false);
     }

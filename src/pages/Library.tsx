@@ -10,10 +10,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { BookOpen, Search, Filter, Trash2, Edit, Share2, MoreVertical, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
 import { useContent } from '../context/ContentContext';
 import { useToast } from '../components/ui/Toast';
 
@@ -23,10 +25,13 @@ type SortBy = 'recent' | 'oldest' | 'title' | 'words';
 export default function Library() {
   const { content, deleteContent } = useContent();
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortBy>('recent');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [contentToDelete, setContentToDelete] = useState<string | null>(null);
 
   const filteredAndSorted = useMemo(() => {
     let result = content;
@@ -97,6 +102,20 @@ export default function Library() {
     return icons[type] || '📄';
   };
 
+  const handleDeleteClick = (contentId: string) => {
+    setContentToDelete(contentId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (contentToDelete) {
+      deleteContent(contentToDelete);
+      addToast('Content deleted', 'success');
+      setDeleteModalOpen(false);
+      setContentToDelete(null);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="min-h-screen bg-primary">
@@ -113,7 +132,7 @@ export default function Library() {
                   <p className="body-small text-secondary">Manage all your content pieces</p>
                 </div>
               </div>
-              <Button variant="primary">
+              <Button variant="primary" onClick={() => navigate('/editor')}>
                 <Plus className="w-4 h-4" />
                 New Content
               </Button>
@@ -210,22 +229,21 @@ export default function Library() {
 
                     <div className="flex items-center gap-md">
                       <button
+                        onClick={() => navigate(`/editor?contentId=${item.id}`)}
                         className="p-md hover:bg-secondary rounded-lg transition-colors text-brand"
                         title="Edit"
                       >
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
+                        onClick={() => navigate(`/publisher?contentId=${item.id}`)}
                         className="p-md hover:bg-secondary rounded-lg transition-colors text-brand"
                         title="Share"
                       >
                         <Share2 className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => {
-                          deleteContent(item.id);
-                          addToast('Content deleted', 'success');
-                        }}
+                        onClick={() => handleDeleteClick(item.id)}
                         className="p-md hover:bg-secondary rounded-lg transition-colors text-danger"
                         title="Delete"
                       >
@@ -239,6 +257,36 @@ export default function Library() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Content"
+        size="sm"
+      >
+        <div className="space-y-lg">
+          <p className="body-base text-secondary">
+            Are you sure you want to delete this content? This action cannot be undone.
+          </p>
+          <div className="flex gap-md">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setDeleteModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1 bg-danger hover:bg-danger/90"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </MainLayout>
   );
 }

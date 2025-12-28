@@ -24,12 +24,15 @@ import {
   MoreVertical,
   Sparkles,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useContent } from '../context/ContentContext';
+import { aiService } from '../services/aiService';
 
 type ViewMode = 'write' | 'preview' | 'split';
 
@@ -44,7 +47,9 @@ interface EditorState {
 
 export default function Editor() {
   const { addToast } = useToast();
-  const { addContent } = useContent();
+  const { user } = useAuth();
+  const { addContent, content, outlines, ideas } = useContent();
+  const [searchParams] = useSearchParams();
 
   const [state, setState] = useState<EditorState>({
     title: 'Untitled Document',
@@ -58,6 +63,57 @@ export default function Editor() {
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentContentId, setCurrentContentId] = useState<string | null>(null);
+
+  // Handle URL parameters to load existing content, outlines, or ideas
+  useEffect(() => {
+    const contentId = searchParams.get('contentId');
+    const outlineId = searchParams.get('outlineId');
+    const ideaId = searchParams.get('ideaId');
+
+    if (contentId) {
+      // Load existing content for editing
+      const existingContent = content.find(c => c.id === contentId);
+      if (existingContent) {
+        setState(prev => ({
+          ...prev,
+          title: existingContent.title,
+          content: existingContent.content,
+        }));
+        setCurrentContentId(contentId);
+      }
+    } else if (outlineId) {
+      // Load outline and create content from it
+      const outline = outlines.find(o => o.id === outlineId);
+      if (outline) {
+        let contentFromOutline = `${outline.hook}\n\n`;
+        outline.sections.forEach((section: any) => {
+          contentFromOutline += `## ${section.heading}\n\n`;
+          section.keyPoints.forEach((point: string) => {
+            contentFromOutline += `- ${point}\n`;
+          });
+          contentFromOutline += '\n';
+        });
+        contentFromOutline += `\n${outline.cta}`;
+
+        setState(prev => ({
+          ...prev,
+          title: outline.title,
+          content: contentFromOutline,
+        }));
+      }
+    } else if (ideaId) {
+      // Load idea and pre-fill title
+      const idea = ideas.find(i => i.id === ideaId);
+      if (idea) {
+        setState(prev => ({
+          ...prev,
+          title: idea.title,
+          content: `# ${idea.title}\n\n${idea.description}\n\n`,
+        }));
+      }
+    }
+  }, [searchParams, content, outlines, ideas]);
 
   // Update word and character counts
   useEffect(() => {
@@ -76,8 +132,15 @@ export default function Editor() {
       return;
     }
 
-    addContent({
-      userId: '1',
+    if (!user) {
+      addToast('Please log in to save content', 'error');
+      return;
+    }
+
+    // If editing existing content, we would update it here
+    // For now, always creating new content
+    const contentId = addContent({
+      userId: user.id,
       title: state.title,
       content: state.content,
       contentType: 'blog',
@@ -88,6 +151,7 @@ export default function Editor() {
       tags: [],
     });
 
+    setCurrentContentId(contentId);
     addToast('Content saved!', 'success');
     setState(prev => ({ ...prev, isDirty: false }));
   };
@@ -125,27 +189,75 @@ export default function Editor() {
   };
 
   const handleAiAction = async (action: string) => {
+    if (!user) {
+      addToast('Please log in to use AI features', 'error');
+      return;
+    }
+
+    // Get selected text or use last paragraph if nothing selected
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    let textToProcess = textarea.value.substring(start, end);
+
+    // If no selection, work on the last paragraph
+    if (!textToProcess.trim()) {
+      const paragraphs = state.content.split('\n\n');
+      textToProcess = paragraphs[paragraphs.length - 1] || state.content;
+    }
+
+    if (!textToProcess.trim()) {
+      addToast('Please select text or write something first', 'error');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Simulate AI processing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let response;
 
-      const actions: Record<string, string> = {
-        expand: ' [AI-expanded content with more details and examples]',
-        condense: '[AI-condensed version]',
-        improve: '[AI-improved version with better flow and grammar]',
-        rephrase: '[AI-rephrased with alternative wording]',
-      };
+      switch (action) {
+        case 'expand':
+          response = await aiService.expandText(textToProcess);
+          break;
+        case 'condense':
+          response = await aiService.condenseText(textToProcess);
+          break;
+        case 'improve':
+          response = await aiService.improveText(textToProcess);
+          break;
+        case 'rephrase':
+          response = await aiService.rephraseText(textToProcess);
+          break;
+        default:
+          throw new Error('Unknown action');
+      }
 
-      setState(prev => ({
-        ...prev,
-        content: prev.content + actions[action],
-        isDirty: true,
-      }));
-
-      addToast(`Content ${action}ed!`, 'success');
+      if (response.success && response.data) {
+        // Replace selected text or append
+        if (start !== end) {
+          const before = state.content.substring(0, start);
+          const after = state.content.substring(end);
+          setState(prev => ({
+            ...prev,
+            content: before + response.data + after,
+            isDirty: true,
+          }));
+        } else {
+          setState(prev => ({
+            ...prev,
+            content: prev.content + '\n\n' + response.data,
+            isDirty: true,
+          }));
+        }
+        addToast(`Content ${action}ed!`, 'success');
+      } else {
+        addToast(response.error || 'AI action failed', 'error');
+      }
     } catch (error) {
       addToast('AI action failed', 'error');
+      console.error('Error with AI action:', error);
     } finally {
       setIsLoading(false);
       setShowAiMenu(false);
