@@ -18,17 +18,18 @@ export const aiService = {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      if (!session) {
-        return { success: false, error: 'Not authenticated' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+      };
+
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-ideas`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({ businessDescription, contentTypes, count }),
       });
 
@@ -38,7 +39,16 @@ export const aiService = {
       }
 
       const result = await response.json();
-      return { success: true, data: result.ideas };
+      const transformedIdeas = result.ideas.map((idea: any) => ({
+        id: crypto.randomUUID(),
+        title: idea.title,
+        description: idea.description,
+        category: idea.category,
+        suggestedType: idea.contentType,
+        suggestedPlatforms: idea.platforms,
+        isSaved: false,
+      }));
+      return { success: true, data: transformedIdeas };
     } catch (error: any) {
       console.error('Generate ideas error:', error);
       return { success: false, error: error.message || 'Failed to generate ideas' };
