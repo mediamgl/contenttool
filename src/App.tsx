@@ -1,5 +1,6 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ComponentPreviewRouter } from './components/ComponentPreview';
+import { useAuth } from './context/AuthContext';
 
 /*-krisspy-code-start*/
 // Auto-generated imports from manifest
@@ -21,29 +22,34 @@ import ContentAnalysis from '/src/pages/ContentAnalysis.tsx';
 
 // Auth guard component
 function AuthGuard({ children, requiresAuth = false }: { children: React.ReactNode, requiresAuth?: boolean }) {
-  if (requiresAuth) {
-    const isAuthenticated = false; // This would come from your auth context/store
-    
-    if (!isAuthenticated) {
-      return (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h1>Authentication Required</h1>
-          <p>You need to be logged in to access this page</p>
-          <button style={{ 
-            padding: '0.5rem 1rem', 
-            backgroundColor: '#3b82f6', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '0.25rem',
-            cursor: 'pointer'
-          }}>
-            Sign In
-          </button>
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f4f6',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto'
+          }} />
         </div>
-      );
-    }
+      </div>
+    );
   }
-  
+
+  if (requiresAuth && !isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!requiresAuth && isAuthenticated && (window.location.pathname === '/login' || window.location.pathname === '/register')) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 
