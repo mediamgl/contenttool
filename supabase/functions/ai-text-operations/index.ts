@@ -46,16 +46,16 @@ Deno.serve(async (req: Request) => {
     let prompt = '';
     switch (operation) {
       case 'expand':
-        prompt = `Expand the following text by adding more detail, examples, and context. Make it more comprehensive while maintaining the original meaning and tone:\n\n${text}`;
+        prompt = `Expand the following text by adding more detail, examples, and context. Make it more comprehensive while maintaining the original meaning and tone. Return ONLY the expanded text, no explanations or commentary:\n\n${text}`;
         break;
       case 'condense':
-        prompt = `Condense the following text to make it more concise while preserving all key information and maintaining clarity:\n\n${text}`;
+        prompt = `Condense the following text to make it more concise while preserving all key information and maintaining clarity. Return ONLY the condensed text, no explanations:\n\n${text}`;
         break;
       case 'improve':
-        prompt = `Improve the following text by enhancing grammar, flow, clarity, and engagement. Make it more professional and compelling:\n\n${text}`;
+        prompt = `Improve the following text by enhancing grammar, flow, clarity, and engagement. Make it more professional and compelling. Return ONLY the improved text, no explanations:\n\n${text}`;
         break;
       case 'rephrase':
-        prompt = `Rephrase the following text using different words and sentence structures while keeping the exact same meaning:\n\n${text}`;
+        prompt = `Rephrase the following text using different words and sentence structures while keeping the exact same meaning. Return ONLY the rephrased text, no explanations:\n\n${text}`;
         break;
       default:
         return new Response(
@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to process text with AI' }),
+        JSON.stringify({ error: 'Failed to process text with AI', details: errorText }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

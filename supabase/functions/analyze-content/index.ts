@@ -55,17 +55,8 @@ Provide a comprehensive analysis including:
 5. Areas for improvement (3-5 points)
 6. Specific optimization suggestions (5-7 actionable items)
 
-Format your response as JSON:
-{
-  "seoScore": 85,
-  "seoExplanation": "...",
-  "readabilityScore": 72,
-  "gradeLevel": "High School",
-  "tone": "Professional",
-  "strengths": ["..."],
-  "improvements": ["..."],
-  "suggestions": ["..."]
-}`;
+CRITICAL: Respond with ONLY valid JSON. No markdown code blocks, no explanations outside the JSON:
+{"seoScore": 85, "seoExplanation": "...", "readabilityScore": 72, "gradeLevel": "High School", "tone": "Professional", "strengths": ["..."], "improvements": ["..."], "suggestions": ["..."]}`;
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -90,7 +81,7 @@ Format your response as JSON:
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to analyze content with AI' }),
+        JSON.stringify({ error: 'Failed to analyze content with AI', details: errorText }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -103,13 +94,13 @@ Format your response as JSON:
 
     let analysis;
     try {
-      const jsonMatch = aiResponse.match(/{[\s\S]*}/);
+      const cleanedResponse = aiResponse.replace(/```json\n?|```\n?/g, '').trim();
+      const jsonMatch = cleanedResponse.match(/{[\s\S]*}/);
       if (jsonMatch) {
         analysis = JSON.parse(jsonMatch[0]);
       } else {
-        analysis = JSON.parse(aiResponse);
-      }
-    } catch (parseError) {
+        analysis = JSON.parse(cleanedResponse);
+      }    } catch (parseError) {
       console.error('Failed to parse AI response:', aiResponse);
       analysis = {
         seoScore: 75,

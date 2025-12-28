@@ -57,7 +57,9 @@ For each idea, provide:
 4. Suggested platforms for distribution
 5. A category (e.g., tutorial, opinion, how-to, case study, listicle)
 
-Format your response as a JSON array with objects containing: title, description, contentType, platforms (array), category.`;
+CRITICAL: You must respond with ONLY a valid JSON array. Do not include markdown code blocks, explanations, or any other text. Just the raw JSON array.
+
+Format: [{"title": "...", "description": "...", "contentType": "...", "platforms": ["..."], "category": "..."}]`;
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -82,7 +84,7 @@ Format your response as a JSON array with objects containing: title, description
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate ideas from AI' }),
+        JSON.stringify({ error: 'Failed to generate ideas from AI', details: errorText }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -95,11 +97,12 @@ Format your response as a JSON array with objects containing: title, description
 
     let ideas;
     try {
-      const jsonMatch = aiResponse.match(/\[\s*{[\s\S]*}\s*\]/);
+      const cleanedResponse = aiResponse.replace(/```json\n?|```\n?/g, '').trim();
+      const jsonMatch = cleanedResponse.match(/\[\s*{[\s\S]*}\s*\]/);
       if (jsonMatch) {
         ideas = JSON.parse(jsonMatch[0]);
       } else {
-        ideas = JSON.parse(aiResponse);
+        ideas = JSON.parse(cleanedResponse);
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', aiResponse);

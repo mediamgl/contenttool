@@ -54,17 +54,8 @@ Provide a structured outline with:
    - 3-5 key points to cover
 2. A compelling call-to-action at the end
 
-Format your response as JSON with this structure:
-{
-  "sections": [
-    {
-      "id": 1,
-      "heading": "Section Title",
-      "keyPoints": ["point 1", "point 2", "point 3"]
-    }
-  ],
-  "cta": "Your call to action"
-}`;
+CRITICAL: Respond with ONLY valid JSON. No markdown code blocks, no explanations. Just raw JSON:
+{"sections": [{"id": 1, "heading": "Section Title", "keyPoints": ["point 1", "point 2", "point 3"]}], "cta": "Your call to action"}`;
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -89,7 +80,7 @@ Format your response as JSON with this structure:
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate outline from AI' }),
+        JSON.stringify({ error: 'Failed to generate outline from AI', details: errorText }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -102,11 +93,12 @@ Format your response as JSON with this structure:
 
     let outline;
     try {
-      const jsonMatch = aiResponse.match(/{[\s\S]*}/);
+      const cleanedResponse = aiResponse.replace(/```json\n?|```\n?/g, '').trim();
+      const jsonMatch = cleanedResponse.match(/{[\s\S]*}/);
       if (jsonMatch) {
         outline = JSON.parse(jsonMatch[0]);
       } else {
-        outline = JSON.parse(aiResponse);
+        outline = JSON.parse(cleanedResponse);
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', aiResponse);

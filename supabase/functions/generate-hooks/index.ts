@@ -52,7 +52,7 @@ Each hook should:
 - Be different in style (question, statement, statistic, story, etc.)
 - Be concise (1-2 sentences max)
 
-Return ONLY a JSON array of strings, with each string being one hook. No other text or explanation.`;
+CRITICAL: Respond with ONLY a valid JSON array of strings. No markdown, no code blocks, no explanations. Just: ["hook 1", "hook 2", "hook 3"]`;
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -77,7 +77,7 @@ Return ONLY a JSON array of strings, with each string being one hook. No other t
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate hooks from AI' }),
+        JSON.stringify({ error: 'Failed to generate hooks from AI', details: errorText }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -90,11 +90,12 @@ Return ONLY a JSON array of strings, with each string being one hook. No other t
 
     let hooks;
     try {
-      const jsonMatch = aiResponse.match(/\[\s*["'][\s\S]*["']\s*\]/);
+      const cleanedResponse = aiResponse.replace(/```json\n?|```\n?/g, '').trim();
+      const jsonMatch = cleanedResponse.match(/\[\s*["'][\s\S]*["']\s*\]/);
       if (jsonMatch) {
         hooks = JSON.parse(jsonMatch[0]);
       } else {
-        hooks = JSON.parse(aiResponse);
+        hooks = JSON.parse(cleanedResponse);
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', aiResponse);
