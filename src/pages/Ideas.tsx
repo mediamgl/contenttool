@@ -58,18 +58,27 @@ export default function Ideas() {
       return;
     }
 
+    if (selectedContentTypes.length === 0) {
+      addToast('Please select at least one content type', 'error');
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const response = await aiService.generateIdeas(businessDescription, selectedContentTypes, 5);
+      console.log('Ideas API Response:', response);
+
       if (response.success && response.data) {
+        console.log('Setting generated ideas:', response.data);
         setGeneratedIdeas(response.data);
         addToast(`Generated ${response.data.length} ideas!`, 'success');
       } else {
+        console.error('API Error:', response.error);
         addToast(response.error || 'Failed to generate ideas', 'error');
       }
     } catch (error) {
-      addToast('Failed to generate ideas', 'error');
       console.error('Error generating ideas:', error);
+      addToast('Failed to generate ideas', 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -120,7 +129,10 @@ export default function Ideas() {
   };
 
   const handleDeleteIdea = (ideaId: string) => {
-    deleteIdea(ideaId);
+    const ideaToDelete = generatedIdeas.find(i => i.id === ideaId);
+    if (ideaToDelete && ideaToDelete.isSaved) {
+      deleteIdea(ideaId);
+    }
     setGeneratedIdeas(generatedIdeas.filter(i => i.id !== ideaId));
     addToast('Idea deleted', 'success');
   };
@@ -181,6 +193,13 @@ export default function Ideas() {
             <Sparkles className="w-5 h-5" />
             Generate Ideas
           </Button>
+
+          {/* Debug Info */}
+          {generatedIdeas.length > 0 && (
+            <div className="text-xs text-secondary">
+              Debug: {generatedIdeas.length} ideas in state
+            </div>
+          )}
         </CardContent>
       </Card>
 

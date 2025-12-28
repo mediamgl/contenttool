@@ -203,6 +203,7 @@ html, body, #root {
 .space-y-lg > * + * { margin-top: var(--space-lg) !important; }
 .space-y-xl > * + * { margin-top: var(--space-xl) !important; }
 .space-y-2xl > * + * { margin-top: var(--space-2xl) !important; }
+.space-y-3xl > * + * { margin-top: var(--space-3xl) !important; }
 
 .mb-xs { margin-bottom: var(--space-xs) !important; }
 .mb-sm { margin-bottom: var(--space-sm) !important; }
