@@ -8,8 +8,8 @@
  * @requiresAuth false
  */
 
-import React, { useState } from 'react';
-import { Key, User, Settings as SettingsIcon, Eye, EyeOff, Trash2, Plus, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Key, User, Settings as SettingsIcon, Eye, EyeOff, Trash2, Plus, Check, AlertCircle } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -17,13 +17,15 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
+import { apiKeyService } from '../services/apiKeyService';
 
 interface ApiKey {
   id: string;
   provider: 'anthropic' | 'openai' | 'google';
-  keyPreview: string;
-  isValid: boolean;
-  addedAt: string;
+  keyName: string;
+  isActive: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
 }
 
 const PROVIDERS = [
@@ -37,44 +39,61 @@ export default function Settings() {
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'keys' | 'preferences'>('profile');
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([
-    {
-      id: '1',
-      provider: 'anthropic',
-      keyPreview: 'sk-ant-...xxxx',
-      isValid: true,
-      addedAt: new Date().toISOString(),
-    },
-  ]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [showAddKey, setShowAddKey] = useState(false);
   const [newKeyProvider, setNewKeyProvider] = useState<string>('');
+  const [newKeyName, setNewKeyName] = useState('');
   const [newKeyValue, setNewKeyValue] = useState('');
   const [showKeyValue, setShowKeyValue] = useState(false);
 
+  useEffect(() => {
+    loadApiKeys();
+  }, []);
+
+  const loadApiKeys = async () => {
+    setIsLoadingKeys(true);
+    const result = await apiKeyService.getApiKeys();
+    if (result.success && result.data) {
+      setApiKeys(result.data);
+    } else {
+      addToast(result.error || 'Failed to load API keys', 'error');
+    }
+    setIsLoadingKeys(false);
+  };
+
   const handleAddKey = async () => {
-    if (!newKeyProvider || !newKeyValue) {
-      addToast('Provider and key are required', 'error');
+    if (!newKeyProvider || !newKeyValue || !newKeyName) {
+      addToast('Provider, name, and key are required', 'error');
       return;
     }
 
-    const newKey: ApiKey = {
-      id: Math.random().toString(36).substr(2, 9),
-      provider: newKeyProvider as any,
-      keyPreview: newKeyValue.substring(0, 6) + '...' + newKeyValue.substring(newKeyValue.length - 4),
-      isValid: true,
-      addedAt: new Date().toISOString(),
-    };
+    const result = await apiKeyService.saveApiKey(
+      newKeyProvider as any,
+      newKeyName,
+      newKeyValue
+    );
 
-    setApiKeys([...apiKeys, newKey]);
-    setNewKeyProvider('');
-    setNewKeyValue('');
-    setShowAddKey(false);
-    addToast('API key added successfully', 'success');
+    if (result.success) {
+      await loadApiKeys();
+      setNewKeyProvider('');
+      setNewKeyName('');
+      setNewKeyValue('');
+      setShowAddKey(false);
+      addToast('API key added successfully', 'success');
+    } else {
+      addToast(result.error || 'Failed to add API key', 'error');
+    }
   };
 
-  const handleDeleteKey = (id: string) => {
-    setApiKeys(apiKeys.filter(k => k.id !== id));
-    addToast('API key removed', 'success');
+  const handleDeleteKey = async (id: string) => {
+    const result = await apiKeyService.deleteApiKey(id);
+    if (result.success) {
+      await loadApiKeys();
+      addToast('API key removed', 'success');
+    } else {
+      addToast(result.error || 'Failed to delete API key', 'error');
+    }
   };
 
   const profileSection = (
@@ -156,12 +175,27 @@ export default function Settings() {
 
   const keysSection = (
     <div className="space-y-lg max-w-2xl">
+      <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+        <CardContent className="flex items-start gap-md py-lg">
+          <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-xs" />
+          <div className="space-y-sm">
+            <p className="body-small font-semibold text-blue-900 dark:text-blue-100">
+              Note: User API keys are not yet integrated with AI features
+            </p>
+            <p className="body-small text-blue-800 dark:text-blue-200">
+              Currently, all AI features use the global ANTHROPIC_API_KEY configured in Supabase Edge Function Secrets.
+              The ability to use your own API keys (BYOK) is planned for a future update. For now, you can store keys here for reference.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-md">
               <Key className="w-5 h-5 text-brand" />
-              API Keys
+              API Keys (BYOK)
             </CardTitle>
             <Button variant="primary" size="sm" onClick={() => setShowAddKey(true)}>
               <Plus className="w-4 h-4" />
@@ -171,10 +205,15 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-lg">
           <p className="body-small text-secondary">
-            Connect your AI provider accounts using your own API keys (BYOK). Your keys are encrypted and never shared.
+            Store your AI provider API keys securely. Your keys are encrypted and stored in the database.
           </p>
 
-          {apiKeys.length === 0 ? (
+          {isLoadingKeys ? (
+            <div className="text-center py-xl">
+              <div className="inline-block w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
+              <p className="body-small text-secondary mt-md">Loading your API keys...</p>
+            </div>
+          ) : apiKeys.length === 0 ? (
             <div className="text-center py-xl">
               <p className="body-base text-secondary mb-lg">No API keys configured yet</p>
               <Button variant="primary" onClick={() => setShowAddKey(true)}>
@@ -197,14 +236,17 @@ export default function Settings() {
                       </div>
                       <div>
                         <p className="body-base font-semibold text-primary">{provider?.name}</p>
+                        <p className="body-small text-secondary">{key.keyName}</p>
                         <div className="flex items-center gap-md mt-xs">
-                          <code className="text-sm text-secondary font-mono">{key.keyPreview}</code>
-                          {key.isValid && (
+                          {key.isActive && (
                             <div className="flex items-center gap-xs">
                               <Check className="w-4 h-4 text-success" />
-                              <span className="text-xs text-success font-semibold">Valid</span>
+                              <span className="text-xs text-success font-semibold">Active</span>
                             </div>
                           )}
+                          <span className="text-xs text-tertiary">
+                            Added {new Date(key.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -363,6 +405,7 @@ export default function Settings() {
           onClose={() => {
             setShowAddKey(false);
             setNewKeyProvider('');
+            setNewKeyName('');
             setNewKeyValue('');
             setShowKeyValue(false);
           }}
@@ -386,6 +429,18 @@ export default function Settings() {
               </select>
             </div>
 
+            <div>
+              <label className="block body-small font-semibold mb-md text-primary">Key Name</label>
+              <input
+                type="text"
+                placeholder="My Production Key"
+                className="input"
+                value={newKeyName}
+                onChange={e => setNewKeyName(e.target.value)}
+              />
+              <p className="text-xs text-secondary mt-sm">A friendly name to identify this key</p>
+            </div>
+
             <div className="relative">
               <label className="block body-small font-semibold mb-md text-primary">API Key</label>
               <div className="relative">
@@ -404,7 +459,7 @@ export default function Settings() {
                   {showKeyValue ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-secondary mt-sm">Your key will be encrypted and never shared</p>
+              <p className="text-xs text-secondary mt-sm">Your key will be encrypted and stored securely</p>
             </div>
 
             <div className="flex gap-md">
@@ -414,6 +469,7 @@ export default function Settings() {
                 onClick={() => {
                   setShowAddKey(false);
                   setNewKeyProvider('');
+                  setNewKeyName('');
                   setNewKeyValue('');
                 }}
               >
