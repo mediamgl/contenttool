@@ -104,8 +104,13 @@ export default function Login() {
             </button>
           </div>
 
-          <label className="flex items-center gap-md cursor-pointer">
-            <input type="checkbox" className="w-4 h-4 rounded border-primary accent-brand cursor-pointer" />
+          <label htmlFor="remember-me" className="flex items-center gap-md cursor-pointer">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              className="w-4 h-4 rounded border-primary accent-brand cursor-pointer"
+            />
             <span className="body-small text-secondary">Remember me</span>
           </label>
 

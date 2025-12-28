@@ -179,8 +179,10 @@ export default function Register() {
             )}
           </div>
 
-          <label className="flex items-start gap-md cursor-pointer">
+          <label htmlFor="terms-agreement" className="flex items-start gap-md cursor-pointer">
             <input
+              id="terms-agreement"
+              name="terms-agreement"
               type="checkbox"
               className="w-4 h-4 rounded border-primary accent-brand cursor-pointer mt-xs"
               defaultChecked

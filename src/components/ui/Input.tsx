@@ -6,13 +6,16 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ error, label, className = '', ...props }, ref) => (
-    <div className="w-full">
-      {label && <label className="block body-small font-semibold mb-md text-primary">{label}</label>}
-      <input ref={ref} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props} />
-      {error && <p className="text-danger text-sm mt-sm">{error}</p>}
-    </div>
-  )
+  ({ error, label, className = '', id, ...props }, ref) => {
+    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+    return (
+      <div className="w-full">
+        {label && <label htmlFor={inputId} className="block body-small font-semibold mb-md text-primary">{label}</label>}
+        <input ref={ref} id={inputId} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props} />
+        {error && <p className="text-danger text-sm mt-sm">{error}</p>}
+      </div>
+    );
+  }
 );
 
 Input.displayName = 'Input';
@@ -23,13 +26,16 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 }
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ error, label, className = '', ...props }, ref) => (
-    <div className="w-full">
-      {label && <label className="block body-small font-semibold mb-md text-primary">{label}</label>}
-      <textarea ref={ref} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props} />
-      {error && <p className="text-danger text-sm mt-sm">{error}</p>}
-    </div>
-  )
+  ({ error, label, className = '', id, ...props }, ref) => {
+    const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+    return (
+      <div className="w-full">
+        {label && <label htmlFor={textareaId} className="block body-small font-semibold mb-md text-primary">{label}</label>}
+        <textarea ref={ref} id={textareaId} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props} />
+        {error && <p className="text-danger text-sm mt-sm">{error}</p>}
+      </div>
+    );
+  }
 );
 
 Textarea.displayName = 'Textarea';
@@ -41,19 +47,22 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ error, label, options, className = '', ...props }, ref) => (
-    <div className="w-full">
-      {label && <label className="block body-small font-semibold mb-md text-primary">{label}</label>}
-      <select ref={ref} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props}>
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {error && <p className="text-danger text-sm mt-sm">{error}</p>}
-    </div>
-  )
+  ({ error, label, options, className = '', id, ...props }, ref) => {
+    const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
+    return (
+      <div className="w-full">
+        {label && <label htmlFor={selectId} className="block body-small font-semibold mb-md text-primary">{label}</label>}
+        <select ref={ref} id={selectId} className={`input ${error ? 'input-error' : ''} ${className}`.trim()} {...props}>
+          {options.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {error && <p className="text-danger text-sm mt-sm">{error}</p>}
+      </div>
+    );
+  }
 );
 
 Select.displayName = 'Select';
