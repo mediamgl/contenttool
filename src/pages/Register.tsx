@@ -18,7 +18,7 @@ import { Button } from '../components/ui/Button';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuth();
+  const { register } = useAuth();
   const { addToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -29,6 +29,7 @@ export default function Register() {
     confirmPassword: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const passwordStrength = (password: string) => {
     let strength = 0;
@@ -72,12 +73,15 @@ export default function Register() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setIsSubmitting(true);
     try {
       await register(formData.email, formData.password, formData.name);
       addToast('Account created successfully!', 'success');
       navigate('/');
     } catch (error) {
       addToast('Registration failed. Please try again.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -110,7 +114,7 @@ export default function Register() {
             value={formData.name}
             onChange={e => setFormData({ ...formData, name: e.target.value })}
             error={errors.name}
-            disabled={isLoading}
+            disabled={isSubmitting}
           />
 
           <Input
@@ -120,7 +124,7 @@ export default function Register() {
             value={formData.email}
             onChange={e => setFormData({ ...formData, email: e.target.value })}
             error={errors.email}
-            disabled={isLoading}
+            disabled={isSubmitting}
           />
 
           <div>
@@ -131,7 +135,7 @@ export default function Register() {
               value={formData.password}
               onChange={e => setFormData({ ...formData, password: e.target.value })}
               error={errors.password}
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
             {formData.password && (
               <div className="mt-md">
@@ -164,7 +168,7 @@ export default function Register() {
               value={formData.confirmPassword}
               onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
               error={errors.confirmPassword}
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
             {formData.confirmPassword && !errors.confirmPassword && (
               <div className="absolute right-lg top-[42px] flex items-center justify-center">
@@ -186,7 +190,7 @@ export default function Register() {
             </span>
           </label>
 
-          <Button type="submit" variant="primary" loading={isLoading} className="w-full">
+          <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
             Create Account
           </Button>
         </form>

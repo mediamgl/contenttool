@@ -18,11 +18,12 @@ import { Button } from '../components/ui/Button';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
   const { addToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -44,12 +45,15 @@ export default function Login() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setIsSubmitting(true);
     try {
       await login(formData.email, formData.password);
       addToast('Successfully logged in!', 'success');
       navigate('/');
     } catch (error) {
       addToast('Login failed. Please try again.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -78,7 +82,7 @@ export default function Login() {
             value={formData.email}
             onChange={e => setFormData({ ...formData, email: e.target.value })}
             error={errors.email}
-            disabled={isLoading}
+            disabled={isSubmitting}
           />
 
           <div className="relative">
@@ -89,7 +93,7 @@ export default function Login() {
               value={formData.password}
               onChange={e => setFormData({ ...formData, password: e.target.value })}
               error={errors.password}
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
             <button
               type="button"
@@ -105,7 +109,7 @@ export default function Login() {
             <span className="body-small text-secondary">Remember me</span>
           </label>
 
-          <Button type="submit" variant="primary" loading={isLoading} className="w-full">
+          <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
             Sign In
           </Button>
         </form>
