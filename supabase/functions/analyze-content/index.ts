@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,38 @@ const corsHeaders = {
 interface AnalyzeContentRequest {
   text: string;
   title?: string;
+}
+
+async function getUserApiKey(req: Request): Promise<string | null> {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return null;
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return null;
+
+    const { data: apiKeys } = await supabaseClient
+      .from('api_keys')
+      .select('encrypted_key')
+      .eq('user_id', user.id)
+      .eq('provider', 'anthropic')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (!apiKeys?.encrypted_key) return null;
+
+    return atob(apiKeys.encrypted_key);
+  } catch (error) {
+    console.error('Error fetching user API key:', error);
+    return null;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -32,10 +65,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const userApiKey = await getUserApiKey(req);
+    const anthropicApiKey = userApiKey || Deno.env.get('ANTHROPIC_API_KEY');
+
     if (!anthropicApiKey) {
       return new Response(
-        JSON.stringify({ error: 'Anthropic API key not configured' }),
+        JSON.stringify({ error: 'Anthropic API key not configured. Please add your API key in Settings.' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,7 +135,8 @@ CRITICAL: Respond with ONLY valid JSON. No markdown code blocks, no explanations
         analysis = JSON.parse(jsonMatch[0]);
       } else {
         analysis = JSON.parse(cleanedResponse);
-      }    } catch (parseError) {
+      }
+    } catch (parseError) {
       console.error('Failed to parse AI response:', aiResponse);
       analysis = {
         seoScore: 75,

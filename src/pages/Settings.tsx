@@ -175,21 +175,6 @@ export default function Settings() {
 
   const keysSection = (
     <div className="space-y-lg max-w-2xl">
-      <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-        <CardContent className="flex items-start gap-md py-lg">
-          <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-xs" />
-          <div className="space-y-sm">
-            <p className="body-small font-semibold text-blue-900 dark:text-blue-100">
-              Note: User API keys are not yet integrated with AI features
-            </p>
-            <p className="body-small text-blue-800 dark:text-blue-200">
-              Currently, all AI features use the global ANTHROPIC_API_KEY configured in Supabase Edge Function Secrets.
-              The ability to use your own API keys (BYOK) is planned for a future update. For now, you can store keys here for reference.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -205,7 +190,7 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-lg">
           <p className="body-small text-secondary">
-            Store your AI provider API keys securely. Your keys are encrypted and stored in the database.
+            Add your AI provider API keys to power content generation features. Your keys are encrypted and stored securely in the database.
           </p>
 
           {isLoadingKeys ? (
